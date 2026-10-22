@@ -207,7 +207,26 @@ class NewsFilter:
             return False, "Spread Jumat sore berpotensi melebar.", meta
 
         return True, "OK", meta
-
+def get_major_news(self, days_ahead: int = 7) -> list[dict]:
+        keywords = ["CPI", "PPI", "FOMC", "INTEREST RATE", "NFP", "NON-FARM", "PMI", "GDP", "UNEMPLOYMENT"]
+        now = utcnow()
+        limit = now + timedelta(days=days_ahead)
+        result = []
+        
+        for event in self.calendar():
+            if event["impact"] != "High":
+                continue
+            title_upper = event["title"].upper()
+            if not any(kw in title_upper for kw in keywords):
+                continue
+                
+            event_dt = pd.Timestamp(event["datetime_utc"])
+            if event_dt.tzinfo is None:
+                event_dt = event_dt.tz_localize("UTC")
+                
+            if now <= event_dt <= limit:
+                result.append(event)
+        return result
     def upcoming(self, hours: int = 48) -> list[dict]:
         now = utcnow()
         limit = now + timedelta(hours=hours)
