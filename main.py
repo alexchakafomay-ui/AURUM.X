@@ -23,7 +23,6 @@ from utils import market_is_open
 
 logger = logging.getLogger(__name__)
 
-
 def setup_logging(level: str) -> None:
     logging.basicConfig(
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -32,17 +31,11 @@ def setup_logging(level: str) -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("yfinance").setLevel(logging.WARNING)
 
-
 def authorized(update: Update, settings: Settings) -> bool:
     return bool(
         update.effective_chat
         and update.effective_chat.id == settings.telegram_chat_id
     )
-
-
-# ============================================================
-# COMMAND HANDLERS
-# ============================================================
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.bot_data["settings"]
@@ -60,13 +53,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/stats — statistik keseluruhan\n"
         "/weekly — performa 7 hari\n"
         "/calendar — berita 48 jam ke depan\n"
+        "/news — radar berita besar (NFP, CPI, FOMC)\n"
         "/pause — jeda sinyal\n"
         "/resume — aktifkan lagi\n\n"
         "⚠️ Bot ini tidak mengeksekusi order ke broker. "
         "Risiko 1-2% per trade. Bukan jaminan profit."
     )
     await update.message.reply_text(text, parse_mode="HTML")
-
 
 async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.bot_data["settings"]
@@ -76,7 +69,6 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     stats = db.get_stats()
     await update.message.reply_text(format_stats(stats), parse_mode="HTML")
 
-
 async def cmd_weekly(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.bot_data["settings"]
     if not authorized(update, settings):
@@ -85,17 +77,24 @@ async def cmd_weekly(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     stats = db.get_stats(days=7)
     await update.message.reply_text(format_weekly(stats), parse_mode="HTML")
 
-
 async def cmd_calendar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.bot_data["settings"]
     if not authorized(update, settings):
         return
     news: NewsFilter = context.bot_data["news"]
     sender: TelegramSender = context.bot_data["sender"]
-
     events = await asyncio.to_thread(news.upcoming, 48)
     await sender.send_calendar(events)
 
+async def cmd_news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    settings: Settings = context.bot_data["settings"]
+    if not authorized(update, settings):
+        return
+    news: NewsFilter = context.bot_data["news"]
+    sender: TelegramSender = context.bot_data["sender"]
+
+    events = await asyncio.to_thread(news.get_major_news, 7)
+    await sender.send_major_news(events)
 
 async def cmd_pause(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.bot_data["settings"]
@@ -108,7 +107,6 @@ async def cmd_pause(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode="HTML",
     )
 
-
 async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.bot_data["settings"]
     if not authorized(update, settings):
@@ -119,7 +117,6 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         "▶️ <b>AURUM-X aktif kembali.</b>\nSinyal akan dikirim pada siklus berikutnya.",
         parse_mode="HTML",
     )
-
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.bot_data["settings"]
@@ -138,20 +135,13 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     )
     await update.message.reply_text(text, parse_mode="HTML")
 
-
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Telegram error: %s", context.error, exc_info=context.error)
-
-
-# ============================================================
-# MAIN
-# ============================================================
 
 async def post_init(application: Application) -> None:
     scheduler: AurumScheduler = application.bot_data["scheduler"]
     scheduler.schedule(application)
     logger.info("AURUM-X scheduler aktif.")
-
 
 def main() -> None:
     settings = Settings()
@@ -193,6 +183,7 @@ def main() -> None:
     application.add_handler(CommandHandler("stats", cmd_stats))
     application.add_handler(CommandHandler("weekly", cmd_weekly))
     application.add_handler(CommandHandler("calendar", cmd_calendar))
+    application.add_handler(CommandHandler("news", cmd_news))
     application.add_handler(CommandHandler("pause", cmd_pause))
     application.add_handler(CommandHandler("resume", cmd_resume))
     application.add_handler(CommandHandler("status", cmd_status))
@@ -203,7 +194,6 @@ def main() -> None:
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES,
     )
-
 
 if __name__ == "__main__":
     main()
