@@ -232,3 +232,33 @@ class TelegramSender:
                 f"{icon} {dt} | <b>{event['currency']}</b> | {escape_html(event['title'])}"
             )
         await self.send_message("\n".join(lines))
+async def send_major_news(self, events: list[dict]) -> None:
+        if not events:
+            await self.send_message(
+                "📰 <b>AURUM-X — RADAR BERITA BESAR</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "Aman Bos! Tidak ada berita raksasa (NFP, CPI, FOMC, dll) dalam 7 hari ke depan."
+            )
+            return
+
+        lines = ["📰 <b>AURUM-X — RADAR BERITA BESAR</b>", "━━━━━━━━━━━━━━━━━━━━\n"]
+        now = utcnow()
+        
+        for event in events:
+            dt = pd.Timestamp(event["datetime_utc"])
+            if dt.tzinfo is None:
+                dt = dt.tz_localize("UTC")
+            
+            delta = dt - now
+            if delta.days == 0:
+                time_str = f"<b>HARI INI</b> pukul {dt.strftime('%H:%M UTC')}"
+            elif delta.days == 1:
+                time_str = f"<b>BESOK</b> pukul {dt.strftime('%H:%M UTC')}"
+            else:
+                time_str = f"<b>{delta.days} hari lagi</b> ({dt.strftime('%d %b')})"
+                
+            icon = "🚨"
+            lines.append(f"{icon} {time_str}\n└ <b>{event['currency']}</b> | {escape_html(event['title'])}\n")
+            
+        lines.append("\n⚠️ <i>Hati-hati volatilitas tinggi saat berita ini rilis. Bot akan otomatis NO_SIGNAL 30 menit sebelum/sesudah berita.</i>")
+        await self.send_message("\n".join(lines))
