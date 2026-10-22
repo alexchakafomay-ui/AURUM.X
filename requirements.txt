@@ -1,0 +1,7 @@
+python-telegram-bot[job-queue]==22.8
+requests>=2.32.0
+pandas>=2.2.0
+numpy>=1.26.0
+yfinance>=0.2.50
+openai>=1.50.0
+python-dotenv>=1.0.0
